@@ -1,0 +1,47 @@
+/* Container for cinematics */
+.cinematics-container {
+	position: relative;
+	--blur-amount: 45px;
+	--frames-buffer: 5s;
+}
+
+/* Visible cinematics layer */
+.cinematics-visible {
+	display: block;
+	position: relative;
+	z-index: 10;
+	width: 100%;
+}
+
+/* Glow effect behind cinematics */
+.cinematics-glow {
+	display: block;
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	z-index: -1;
+	left: 0;
+	top: 0;
+	filter: blur(var(--blur-amount, 45px));
+	-webkit-filter: blur(var(--blur-amount, 45px));  /* Safari */
+	-moz-filter: blur(var(--blur-amount, 45px));     /* Firefox fallback */
+}
+
+/* Base opacity for cinematics within sprites */
+.cinematics-sprite .cinematics {
+	opacity: 0.4;
+}
+
+/* Fade in the last cinematics element */
+.cinematics-sprite .cinematics:last-child {
+	animation: fadein var(--frames-buffer) linear forwards;
+}
+
+@keyframes fadein {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
