@@ -28,7 +28,7 @@
 }
 
 /* Base opacity for cinematics within sprites */
-.cinematics-sprite .cinematics {
+.cinematics-sprite .cinematics-glow {
 	opacity: 0.4;
 }
 

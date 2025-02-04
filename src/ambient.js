@@ -1,8 +1,7 @@
 class Ambient {
 	/**
-	 * @param {HTMLElement|string} container - A DOM element (or its id) that wraps the video player.
+	 * @param {HTMLElement|string} container - A DOM element that wraps the video player.
 	 * @param {Object} options
-	 *   options.blur {number} - Blur amount in pixels (default: 45).
 	 *   options.vtt {string|null} - URL to a WEBVTT file with sprite images (optional).
 	 */
 	constructor(container, options = {}) {
@@ -10,15 +9,15 @@ class Ambient {
 		throw new Error("Container argument is required");
 	  }
 
-	  this.container =
-		typeof container === "string"
-		  ? document.getElementById(container)
-		  : container;
+	  this.container = 
+		typeof container === "string" 
+			? document.querySelector(container) 
+			: container;
 	
 	  if (!this.container) {
 		throw new Error("Container element not found");
 	  }
-	  this.options = Object.assign({ blur: 45, vtt: null }, options);
+	  this.options = Object.assign({ vtt: null }, options);
   
 	  // Look for video element.
 	  this.video = this.container.querySelector("video");
