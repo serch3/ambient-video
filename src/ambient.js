@@ -26,6 +26,7 @@ class Ambient {
 	  }
 
 	  this.canvas = null;
+	  this.wrapper = null;
 	  this._vttCues = null;
 	  this._spriteCache = {};
 	  this.activeCanvases = [];
@@ -38,24 +39,48 @@ class Ambient {
 	 * Creates and mounts the ambient canvas.
 	 */
 	mount() {
-	  // Create a canvas element.
-	  this.canvas = document.createElement("canvas");
-	  this.canvas.className = "cinematics-glow";
-	  // Use the video element's dimensions.
-	  this._resizeCanvas();
+		// Prevent multiple mounts
+		if (this.canvas) {
+			console.warn('Ambient canvas is already mounted');
+			return;
+		}
 
-	  // additional styling.
-	  this.container.classList.add("cinematics-container");
-	  this.container.appendChild(this.canvas);
-	  this.video.classList.add("cinematics-visible");
-  
-	  // if a VTT file was provided, use VTT thumbnail mode.
-	  if (this.options.vtt) {
-		this.container.classList.add("cinematics-sprite");
-		this._setupVttDrawing();
-	  } else {
-		this._setupLiveDrawing();
-	  }
+		try {
+			// Add necessary classes
+			this.container.classList.add("cinematics-container");
+			this.video.classList.add("cinematics-visible");
+
+			// Create and initialize canvas
+			this.canvas = document.createElement("canvas");
+			this._resizeCanvas();
+
+			if (this.options.vtt) {
+				// VTT sprite mode
+				// this.container.classList.add("cinematics-sprite");
+				this.wrapper = document.createElement("div");
+				this.wrapper.className = "cinematics-wrapper";
+				
+				// Use document fragment for better performance
+				const fragment = document.createDocumentFragment();
+				fragment.appendChild(this.canvas);
+				this.wrapper.appendChild(fragment);
+				this.container.appendChild(this.wrapper);
+				
+				this._setupVttDrawing();
+			} else {
+				// Live drawing mode
+				this.canvas.className = "cinematics-glow";
+				this.container.appendChild(this.canvas);
+				this._setupLiveDrawing();
+			}
+
+			// Return this for method chaining
+			return this;
+		} catch (error) {
+			console.error('Failed to mount ambient canvas:', error);
+			this.unmount(); // Cleanup on error
+			throw error;
+		}
 	}
   
 	/**
@@ -70,16 +95,6 @@ class Ambient {
 		delete this.video.__acCleanup;
 	  }
 	}
-  
-	/**
-	// _applyBlur(element, value) {
-	//   const blurStyle = `blur(${value}px)`;
-	//   const vendors = ["", "webkit", "moz", "ms"];
-	//   vendors.forEach(vendor => {
-	// 	element.style[`${vendor}Filter`] = blurStyle;
-	//   });
-	// }
-	 */
   
 	/**
 	 * Resizes the canvas to match the video element's current dimensions.
@@ -160,54 +175,52 @@ class Ambient {
 	 */
 	_setupVttDrawing() {
 		let lastCue = null;
-		this.activeCanvases = [this.canvas]; // stack
-	  
+		this.activeCanvases = [this.canvas]; // Stack for active canvases
+		this._spriteCache = new Map(); // Using a Map for better performance
+	
 		const updateThumbnail = () => {
-		  if (!this._vttCues) return;
-	  
-		  const curTime = this.video.currentTime;
-		  const cue = this._vttCues.find(c => curTime >= c.start && curTime < c.end);
-		  if (!cue || (lastCue && lastCue.start === cue.start && lastCue.end === cue.end)) return;
-		  lastCue = cue;
-	  
-		  let spriteImg = this._spriteCache[cue.src];
-		  if (!spriteImg) {
-			spriteImg = new Image();
-			spriteImg.src = cue.src;
-			this._spriteCache[cue.src] = spriteImg;
-		  }
-	  
-		  if (spriteImg.complete && spriteImg.naturalWidth > 0) {
-			// Clone template canvas
-			const newCanvas = this.canvas.cloneNode(true);
-			const ctx = newCanvas.getContext("2d");
-			
-			ctx.clearRect(0, 0, newCanvas.width, newCanvas.height);
-			ctx.drawImage(
-			  spriteImg,
-			  cue.x, cue.y, cue.w, cue.h,
-			  0, 0, newCanvas.width, newCanvas.height
-			);
+			if (!this._vttCues) return;
 	
-			this.container.appendChild(newCanvas);
-			this.activeCanvases.push(newCanvas);
+			const curTime = this.video.currentTime;
+			const cue = this._vttCues.find(c => curTime >= c.start && curTime < c.end);
+			if (!cue || (lastCue && lastCue.start === cue.start && lastCue.end === cue.end)) return;
+			lastCue = cue;
 	
-			// Remove oldest if more than 2 canvases
-			if (this.activeCanvases.length > 2) {
-			  const oldestCanvas = this.activeCanvases.shift();
-			  this.container.removeChild(oldestCanvas);
+			let spriteImg = this._spriteCache.get(cue.src);
+			if (!spriteImg) {
+				spriteImg = new Image();
+				spriteImg.src = cue.src;
+				this._spriteCache.set(cue.src, spriteImg);
+				spriteImg.onload = () => drawFrame(spriteImg, cue);
+				return;
 			}
-		  }
+	
+			if (spriteImg.complete && spriteImg.naturalWidth > 0) {
+				drawFrame(spriteImg, cue);
+			}
 		};
 	
-		this.video.addEventListener("timeupdate", updateThumbnail);
-		this.video.addEventListener("loadeddata", updateThumbnail);
-		
-		this.video.__acCleanup = () => {
-		  this.video.removeEventListener("timeupdate", updateThumbnail);
-		  this.video.removeEventListener("loadeddata", updateThumbnail);
+		const drawFrame = (spriteImg, cue) => {
+			const newCanvas = this.activeCanvases.length < 2 ? this.canvas.cloneNode(true) : this.activeCanvases.shift();
+			const ctx = newCanvas.getContext("2d");
+	
+			ctx.clearRect(0, 0, newCanvas.width, newCanvas.height);
+			ctx.drawImage(spriteImg, cue.x, cue.y, cue.w, cue.h, 0, 0, newCanvas.width, newCanvas.height);
+	
+			if (!this.activeCanvases.includes(newCanvas)) {
+				this.wrapper.appendChild(newCanvas);
+				this.activeCanvases.push(newCanvas);
+			}
 		};
-	}
+	
+		this.video.addEventListener("timeupdate", () => requestAnimationFrame(updateThumbnail));
+		this.video.addEventListener("loadeddata", updateThumbnail);
+	
+		this.video.__acCleanup = () => {
+			this.video.removeEventListener("timeupdate", updateThumbnail);
+			this.video.removeEventListener("loadeddata", updateThumbnail);
+		};
+	}	
   
 	/**
 	 * Asynchronously loads and parses a VTT file.
