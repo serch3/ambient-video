@@ -1,0 +1,70 @@
+:root {
+    font-family: Arial,sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    --pico-grid-row-gap: .5rem;
+}
+
+[data-theme="dark"] {
+    --background-color: #0f1014;
+}
+
+body {
+    margin-bottom: 8rem
+}
+
+video {
+    border-radius: 8px;
+    z-index: 1;
+    box-shadow: 0 2px 2px #0006
+}
+
+.author {
+    font-size: .8rem;
+    opacity: .6;
+}
+
+@keyframes fadein {
+    0% {
+        opacity: 0
+    }
+
+    to {
+        opacity: 1
+    }
+}
+
+@media only screen and (max-width: 600px) {
+    .header {
+        padding-top:2rem
+    }
+
+    .footer {
+        max-width: 100%
+    }
+
+    .settings .right {
+        justify-content: space-between
+    }
+}
+
+@media only screen and (min-width: 600px) {
+    .header {
+        padding-top:4rem
+    }
+}
+
+
+@media only screen and (min-width: 992px) {
+    .toolbar {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-end;
+    }
+}

@@ -13,7 +13,7 @@
 	width: 100%;
 }
 
-/* Optimized Glow Effect Behind Cinematics */
+/* SINGLE */
 .cinematics-glow {
 	position: absolute;
 	inset: 0;
@@ -21,6 +21,7 @@
 	filter: blur(var(--blur-amount));
 }
 
+/* DOUBLE */
 .cinematics-wrapper {
 	position: absolute;
 	will-change: filter, opacity;

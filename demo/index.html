@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head></head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./css/pico.min.css">
+    <title>Ambient Test</title>
+    <link rel="stylesheet" href="./css/style.css">
+    <link rel="stylesheet" href="../src/ambient.css">
+</head>
+<body>
+    <main class="container header">
+        <div class="grid">
+            <hgroup>
+                <h2>Video Ambient Lights</h2>
+                <h3>Immersive cinematic effect</h3>
+            </hgroup>
+            <div class="toolbar">
+                <label for="mode-switch">
+                    <input type="checkbox" id="mode-switch" name="mode-switch" role="switch">
+                    <span id="mode-label"></span>
+                </label>
+            </div>
+        </div>
+    </main>
+
+    <div class="container" style="padding-top: 2rem;">
+        <div id="video-container">
+            <video id="video" height="auto" width="100%" playsinline controls>
+                <source src="./public/springsong_trailer.mp4" type="video/mp4">
+                <track kind="captions" label="English" srclang="en" src="./public/en.vtt" default>
+            </video>
+        </div>
+    </div>
+
+    <footer class="container">
+        <div class="grid" style="padding-bottom: 1rem;">
+            <p>Video: Fate/stay night [Heaven's Feel] THE MOVIE III. spring song Trailer</p>
+        </div>
+        <div class="grid">
+            <div>
+                <small class="center">
+                    <a target="_blank" href="https://github.com/serch3/ambient-video">Github: Source code</a>
+                </small>
+                <div class="author">@serch3</div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../src/ambient.js"></script>
+    <script>
+        let ambient;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.getElementById('video-container');
+            const modeSwitch = document.getElementById('mode-switch');
+            const modeLabel = document.getElementById('mode-label');
+
+            let savedMode = localStorage.getItem('ambientMode') || 'live';
+
+            modeSwitch.checked = (savedMode === 'live');
+            modeLabel.textContent = savedMode === 'live' ? 'Live Mode' : 'Sprite Mode';
+
+            // Initialize Ambient based on the saved mode.
+            const vttOption = (savedMode === 'sprite') ? './public/en.vtt' : null;
+            ambient = new Ambient(container, { vtt: vttOption });
+            ambient.mount();
+
+            // Bind the switch change event.
+            modeSwitch.addEventListener('change', () => {
+                ambient.unmount();
+
+                // Determine the new mode based on the switch state.
+                const newMode = modeSwitch.checked ? 'live' : 'sprite';
+                localStorage.setItem('ambientMode', newMode);
+                modeLabel.textContent = newMode === 'live' ? 'Live Mode' : 'Sprite Mode';
+
+                // Re-instantiate Ambient with the new mode.
+                const newVttOption = (newMode === 'sprite') ? './public/en.vtt' : null;
+                ambient = new Ambient(container, { vtt: newVttOption });
+                ambient.mount();
+            });
+        });
+    </script>
+</body>
+</html>
