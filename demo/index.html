@@ -76,7 +76,7 @@
                 modeLabel.textContent = newMode === 'live' ? 'Live Mode' : 'Sprite Mode';
 
                 // Re-instantiate Ambient with the new mode.
-                const newVttOption = (newMode === 'sprite') ? './public/en.vtt' : null;
+                const newVttOption = (newMode === 'sprite') ? 'https://serch3.github.io/ambient-video/public/thumbnails.vtt' : null;
                 ambient = new Ambient(container, { vtt: newVttOption });
                 ambient.mount();
             });
