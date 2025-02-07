@@ -27,8 +27,8 @@
     <div class="container" style="padding-top: 2rem;">
         <div id="video-container">
             <video id="video" height="auto" width="100%" playsinline controls>
-                <source src="./public/springsong_trailer.mp4" type="video/mp4">
-                <track kind="captions" label="English" srclang="en" src="./public/en.vtt" default>
+                <source src="https://serch3.github.io/ambient-video/public/springsong_trailer.mp4" type="video/mp4">
+                <track kind="captions" label="English" srclang="en" src="https://serch3.github.io/ambient-video/public/en.vtt" default>
             </video>
         </div>
     </div>
@@ -62,7 +62,7 @@
             modeLabel.textContent = savedMode === 'live' ? 'Live Mode' : 'Sprite Mode';
 
             // Initialize Ambient based on the saved mode.
-            const vttOption = (savedMode === 'sprite') ? './public/en.vtt' : null;
+            const vttOption = (savedMode === 'sprite') ? 'https://serch3.github.io/ambient-video/public/thumbnails.vtt' : null;
             ambient = new Ambient(container, { vtt: vttOption });
             ambient.mount();
 
