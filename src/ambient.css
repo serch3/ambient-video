@@ -19,6 +19,9 @@
 	inset: 0;
 	z-index: -1;
 	filter: blur(var(--blur-amount));
+	/* safari fix */
+	-webkit-backdrop-filter: blur(var(--blur-amount));
+	-webkit-transform: translate3d(0, 0, 0);
 }
 
 /* DOUBLE */
@@ -29,7 +32,9 @@
 	z-index: -1;
 	transform: scale(var(--scale-factor));
 	filter: blur(var(--blur-amount));
+	-webkit-backdrop-filter: blur(var(--blur-amount));
 	opacity: var(--glow-opacity);
+	-webkit-transform: translate3d(0, 0, 0);
 }
 
 .cinematics-wrapper canvas {
