@@ -90,6 +90,11 @@ class Ambient {
 	  if (this.canvas && this.canvas.parentNode === this.container) {
 		this.container.removeChild(this.canvas);
 	  }
+
+	  if (this.wrapper) {
+		this.container.removeChild(this.wrapper);
+	  }
+
 	  if (this.video && this.video.__acCleanup) {
 		this.video.__acCleanup();
 		delete this.video.__acCleanup;
