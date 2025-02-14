@@ -82,7 +82,7 @@ class Ambient {
 			throw error;
 		}
 	}
-  
+   
 	/**
 	 * Removes the canvas and cleans up any event listeners.
 	 */
@@ -90,6 +90,11 @@ class Ambient {
 	  if (this.canvas && this.canvas.parentNode === this.container) {
 		this.container.removeChild(this.canvas);
 	  }
+
+	  if (this.wrapper && this.wrapper.parentNode === this.container) {
+		this.container.removeChild(this.wrapper);
+	  }
+
 	  if (this.video && this.video.__acCleanup) {
 		this.video.__acCleanup();
 		delete this.video.__acCleanup;
