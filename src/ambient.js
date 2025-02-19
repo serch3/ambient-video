@@ -39,6 +39,12 @@ class Ambient {
 	 * Creates and mounts the ambient canvas.
 	 */
 	mount() {
+		// prevent starting if the video is not set
+		if (!this.video) {
+			console.warn('No video element found');
+			return;
+		}
+
 		// Prevent multiple mounts
 		if (this.canvas) {
 			console.warn('Ambient canvas is already mounted');
