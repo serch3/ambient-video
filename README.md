@@ -30,6 +30,7 @@ Also include the CSS file:
 const player = document.getElementById('player');
 const ambient = new Ambient('.player-wrapper', {
   vtt: 'path/to/sprite.vtt', // Optional: Use VTT sprite mode
+  framerate: 20, // Optional: canvas framerate in live mode
 });
 
 ambient.mount(); 

@@ -19,7 +19,7 @@ class Ambient {
 	  }
   
 	  // Default options
-	  this.options = Object.assign({ vtt: null }, options);
+	  this.options = Object.assign({ vtt: null,  framerate: 20 }, options);
   
 	  // Look for video element
 	  this.video = this.container.querySelector("video");
@@ -163,21 +163,30 @@ class Ambient {
 	_setupLiveDrawing() {
 	  const ctx = this.canvas.getContext("2d", { willReadFrequently: true });
 	  let animationFrameId = null;
-  
+	  let lastDrawTime = 0;
+	  const frameInterval = 1000 / this.options.framerate;
+
 	  const drawFrame = () => {
+		const now = performance.now();
+		if (now - lastDrawTime < frameInterval) {
+		  return;
+		}
+
+		lastDrawTime = now;
 		this.canvas.width = this.video.clientWidth;
 		this.canvas.height = this.video.clientHeight;
-  
+
 		try {
 		  ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
 		} catch (err) {
 		  // This can happen if video isn't ready or cross-origin issues
-		  // console.error("Error drawing video frame:", err);
+		  console.error("Error drawing video frame:", err);
 		}
 	  };
   
 	  const drawLoop = () => {
-		drawFrame();
+		// test reducing frame rate
+		drawFrame ();
 		animationFrameId = window.requestAnimationFrame(drawLoop);
 	  };
   
