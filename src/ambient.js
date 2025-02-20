@@ -8,28 +8,35 @@ class Ambient {
 	  if (!container) {
 		throw new Error("Container argument is required");
 	  }
-
-	  this.container = 
-		typeof container === "string" 
-			? document.querySelector(container) 
-			: container;
-	
+  
+	  this.container =
+		typeof container === "string"
+		  ? document.querySelector(container)
+		  : container;
+  
 	  if (!this.container) {
 		throw new Error("Container element not found");
 	  }
+  
+	  // Default options
 	  this.options = Object.assign({ vtt: null }, options);
   
-	  // Look for video element.
+	  // Look for video element
 	  this.video = this.container.querySelector("video");
 	  if (!this.video) {
 		throw new Error("No video element found inside the container");
 	  }
-
+  
 	  this.canvas = null;
 	  this.wrapper = null;
+  
+	  // VTT-related data
 	  this._vttCues = null;
-	  this._spriteCache = {};
+	  this._spriteCache = new Map();
+	  // For controlling multiple canvases in VTT mode
 	  this.activeCanvases = [];
+  
+	  // Preload VTT data if provided
 	  if (this.options.vtt) {
 		this._loadVtt(this.options.vtt);
 	  }
@@ -39,89 +46,110 @@ class Ambient {
 	 * Creates and mounts the ambient canvas.
 	 */
 	mount() {
-		// prevent starting if the video is not set
-		if (!this.video) {
-			console.warn('No video element found');
-			return;
-		}
-
-		// Prevent multiple mounts
-		if (this.canvas) {
-			console.warn('Ambient canvas is already mounted');
-			return;
-		}
-
-		try {
-			// Add necessary classes
-			this.container.classList.add("cinematics-container");
-			this.video.classList.add("cinematics-visible");
-
-			// Create and initialize canvas
-			this.canvas = document.createElement("canvas");
-			this._resizeCanvas();
-
-			if (this.options.vtt) {
-				// VTT sprite mode
-				// this.container.classList.add("cinematics-sprite");
-				this.wrapper = document.createElement("div");
-				this.wrapper.className = "cinematics-wrapper";
-				
-				// Use document fragment for better performance
-				const fragment = document.createDocumentFragment();
-				fragment.appendChild(this.canvas);
-				this.wrapper.appendChild(fragment);
-				this.container.appendChild(this.wrapper);
-				
-				this._setupVttDrawing();
-			} else {
-				// Live drawing mode
-				this.canvas.className = "cinematics-glow";
-				this.container.appendChild(this.canvas);
-				this._setupLiveDrawing();
-			}
-
-			// Return this for method chaining
-			return this;
-		} catch (error) {
-			console.error('Failed to mount ambient canvas:', error);
-			this.unmount(); // Cleanup on error
-			throw error;
-		}
-	}
-   
-	/**
-	 * Removes the canvas and cleans up any event listeners.
-	 */
-	unmount() {
-	  if (this.canvas && this.canvas.parentNode === this.container) {
-		this.container.removeChild(this.canvas);
+	  // Prevent starting if the video is not set
+	  if (!this.video) {
+		console.warn("No video element found");
+		return;
 	  }
-
-	  if (this.wrapper && this.wrapper.parentNode === this.container) {
-		this.container.removeChild(this.wrapper);
+  
+	  // Prevent multiple mounts
+	  if (this.canvas || this.wrapper) {
+		console.warn("Ambient canvas is already mounted");
+		return this;
 	  }
+  
+	  try {
+	
+		this.container.classList.add("cinematics-container");
+		this.video.classList.add("cinematics-visible");
+		this.canvas = document.createElement("canvas");
+  
+		if (this.options.vtt) {
+		  // --- VTT (Sprite) mode ---
+		  this.wrapper = document.createElement("div");
+		  this.wrapper.className = "cinematics-wrapper";
+		  this._resizeCanvas(true);
+		  this.wrapper.appendChild(this.canvas);
+		  this.container.appendChild(this.wrapper);
 
-	  if (this.video && this.video.__acCleanup) {
-		this.video.__acCleanup();
-		delete this.video.__acCleanup;
+		  // Setup sprite-based drawing
+		  this._setupVttDrawing();
+		} else {
+		  // --- Live-drawing mode (single canvas) ---
+		  this.canvas.className = "cinematics-glow";
+		  this._resizeCanvas(false);
+		  this.container.appendChild(this.canvas);
+  
+		  // Setup real-time drawing
+		  this._setupLiveDrawing();
+		}
+  
+		return this;
+	  } catch (error) {
+		console.error("Failed to mount ambient canvas:", error);
+		this.unmount(); // Cleanup on error
+		throw error;
 	  }
 	}
   
 	/**
-	 * Resizes the canvas to match the video element's current dimensions.
+	 * Removes the canvas and cleans up any event listeners.
 	 */
-	_resizeCanvas() {
+	unmount() {
+	  // Remove single-canvas
+	  if (this.canvas && !this.options.vtt && this.canvas.parentNode === this.container) {
+		this.container.removeChild(this.canvas);
+	  }
+  
+	  // Remove wrapper
+	  if (this.wrapper && this.wrapper.parentNode === this.container) {
+		this.container.removeChild(this.wrapper);
+	  }
+  
+	  // Reset container classes
+	  this.container.classList.remove("cinematics-container");
+	  this.video.classList.remove("cinematics-visible");
+  
+	  // Cleanup event listeners via stored cleanup function
+	  if (this.video && typeof this.video.__acCleanup === "function") {
+		this.video.__acCleanup();
+		delete this.video.__acCleanup;
+	  }
+  
+	  this.canvas = null;
+	  this.wrapper = null;
+	  this.activeCanvases = [];
+	}
+  
+	/**
+	 * Resizes the primary canvas to match the video element's dimensions.
+	 * In VTT mode, we only handle the initial canvas (the cloned ones
+	 * will mirror dimensions).
+	 *
+	 * @param {boolean} isVttMode - Whether we are in sprite/VTT mode
+	 */
+	_resizeCanvas(isVttMode) {
+	  // We'll define the actual function here so we can remove it later
 	  const resizeCanvas = () => {
+		if (!this.canvas || !this.video) return;
+  
 		this.canvas.width = this.video.clientWidth;
 		this.canvas.height = this.video.clientHeight;
 
-		this.activeCanvases.forEach(canvas => {
-			if (canvas.parentNode === this.container) {
-			this.container.removeChild(canvas);
+		if (isVttMode && this.activeCanvases.length > 2) {
+		  while (this.activeCanvases.length > 2) {
+			const oldCanvas = this.activeCanvases.shift();
+			if (oldCanvas && oldCanvas.parentNode === this.wrapper) {
+			  this.wrapper.removeChild(oldCanvas);
 			}
-		});
+		  }
+		}
 	  };
+  
+	  // Immediately call once
 	  resizeCanvas();
+  
+	  // Attach resize listener
 	  this.video.addEventListener("resize", resizeCanvas);
 	  this.video.__acCleanup = () => {
 		this.video.removeEventListener("resize", resizeCanvas);
@@ -129,18 +157,22 @@ class Ambient {
 	}
   
 	/**
-	 * Sets up the drawing loop that renders the video onto the canvas.
+	 * Sets up the drawing loop that renders the live video onto the canvas.
+	 * (Non-VTT mode)
 	 */
 	_setupLiveDrawing() {
 	  const ctx = this.canvas.getContext("2d", { willReadFrequently: true });
 	  let animationFrameId = null;
   
 	  const drawFrame = () => {
-		this._resizeCanvas();
+		this.canvas.width = this.video.clientWidth;
+		this.canvas.height = this.video.clientHeight;
+  
 		try {
 		  ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
 		} catch (err) {
-		  console.error("Error drawing video frame:", err);
+		  // This can happen if video isn't ready or cross-origin issues
+		  // console.error("Error drawing video frame:", err);
 		}
 	  };
   
@@ -156,147 +188,170 @@ class Ambient {
 		}
 	  };
   
+	  // Event handlers
 	  const onLoadedData = () => drawFrame();
 	  const onSeeked = () => drawFrame();
 	  const onPlay = () => drawLoop();
 	  const onPause = () => stopLoop();
 	  const onEnded = () => stopLoop();
   
-	  this.video.addEventListener("loadeddata", onLoadedData, false);
-	  this.video.addEventListener("seeked", onSeeked, false);
-	  this.video.addEventListener("play", onPlay, false);
-	  this.video.addEventListener("pause", onPause, false);
-	  this.video.addEventListener("ended", onEnded, false);
+	  // Attach listeners
+	  this.video.addEventListener("loadeddata", onLoadedData);
+	  this.video.addEventListener("seeked", onSeeked);
+	  this.video.addEventListener("play", onPlay);
+	  this.video.addEventListener("pause", onPause);
+	  this.video.addEventListener("ended", onEnded);
   
-	  // Store a cleanup function on the video element.
+	  // Cleanup function
+	  const existingCleanup = this.video.__acCleanup || (() => {});
 	  this.video.__acCleanup = () => {
-		this.video.removeEventListener("loadeddata", onLoadedData, false);
-		this.video.removeEventListener("seeked", onSeeked, false);
-		this.video.removeEventListener("play", onPlay, false);
-		this.video.removeEventListener("pause", onPause, false);
-		this.video.removeEventListener("ended", onEnded, false);
+		existingCleanup();
+		this.video.removeEventListener("loadeddata", onLoadedData);
+		this.video.removeEventListener("seeked", onSeeked);
+		this.video.removeEventListener("play", onPlay);
+		this.video.removeEventListener("pause", onPause);
+		this.video.removeEventListener("ended", onEnded);
 		stopLoop();
 	  };
 	}
   
 	/**
 	 * Sets up VTT drawing mode.
-	 * On every timeupdate event, the code looks up the proper cue (if available)
-	 * and, if the sprite image is loaded, draws the specified portion onto the canvas.
 	 */
 	_setupVttDrawing() {
-		let lastCue = null;
-		this.activeCanvases = [this.canvas]; // Stack for active canvases
-		this._spriteCache = new Map(); // Using a Map for better performance
+	  let lastCue = null;
+	  // Keep track of the primary canvas in our active stack
+	  this.activeCanvases = [this.canvas];
+  
+	  /**
+	   * Schedules a sprite update
+	   */
+	  const updateThumbnail = () => {
+		if (!this._vttCues) return;
+  
+		const curTime = this.video.currentTime;
+		// find the cue that matches current time
+		const cue = this._vttCues.find((c) => curTime >= c.start && curTime < c.end);
+		if (!cue) return;
+  
+		// Prevent unnecessary re-draw if the same cue
+		if (lastCue && lastCue.start === cue.start && lastCue.end === cue.end) return;
+  
+		lastCue = cue;
+		let spriteImg = this._spriteCache.get(cue.src);
+		if (!spriteImg) {
+		  spriteImg = new Image();
+		  spriteImg.src = cue.src;
+		  this._spriteCache.set(cue.src, spriteImg);
+		  // Once loaded, do the initial draw
+		  spriteImg.onload = () => this._drawSpriteFrame(spriteImg, cue);
+		} else if (spriteImg.complete && spriteImg.naturalWidth > 0) {
+		  this._drawSpriteFrame(spriteImg, cue);
+		}
+	  };
+  
+	  // Attach listeners
+	  const onTimeUpdate = () => requestAnimationFrame(updateThumbnail);
+	  const onLoadedData = () => updateThumbnail();
+	  this.video.addEventListener("timeupdate", onTimeUpdate);
+	  this.video.addEventListener("loadeddata", onLoadedData);
+  
+	  // Cleanup function
+	  const existingCleanup = this.video.__acCleanup || (() => {});
+	  this.video.__acCleanup = () => {
+		existingCleanup();
+		this.video.removeEventListener("timeupdate", onTimeUpdate);
+		this.video.removeEventListener("loadeddata", onLoadedData);
+	  };
+	}
+  
+	/**
+	 * Draws the specific portion of the sprite onto a new or recycled canvas,
+	 * then attaches it to the wrapper for the fade-in effect.
+	 */
+	_drawSpriteFrame(spriteImg, cue) {
+		// Create a fresh canvas (or clone the original)
+		let newCanvas = this.canvas.cloneNode(true);
+		const ctx = newCanvas.getContext("2d");
 	
-		const updateThumbnail = () => {
-			if (!this._vttCues) return;
-	
-			const curTime = this.video.currentTime;
-			const cue = this._vttCues.find(c => curTime >= c.start && curTime < c.end);
-			if (!cue || (lastCue && lastCue.start === cue.start && lastCue.end === cue.end)) return;
-			lastCue = cue;
-	
-			let spriteImg = this._spriteCache.get(cue.src);
-			if (!spriteImg) {
-				spriteImg = new Image();
-				spriteImg.src = cue.src;
-				this._spriteCache.set(cue.src, spriteImg);
-				spriteImg.onload = () => drawFrame(spriteImg, cue);
-				return;
-			}
-	
-			if (spriteImg.complete && spriteImg.naturalWidth > 0) {
-				drawFrame(spriteImg, cue);
-			}
-		};
-	
-		const drawFrame = (spriteImg, cue) => {
-			const newCanvas = this.activeCanvases.length < 2 ? this.canvas.cloneNode(true) : this.activeCanvases.shift();
-			const ctx = newCanvas.getContext("2d");
-	
-			ctx.clearRect(0, 0, newCanvas.width, newCanvas.height);
-			ctx.drawImage(spriteImg, cue.x, cue.y, cue.w, cue.h, 0, 0, newCanvas.width, newCanvas.height);
-	
-			if (!this.activeCanvases.includes(newCanvas)) {
-				this.wrapper.appendChild(newCanvas);
-				this.activeCanvases.push(newCanvas);
-			}
-		};
-	
-		this.video.addEventListener("timeupdate", () => requestAnimationFrame(updateThumbnail));
-		this.video.addEventListener("loadeddata", updateThumbnail);
-	
-		this.video.__acCleanup = () => {
-			this.video.removeEventListener("timeupdate", updateThumbnail);
-			this.video.removeEventListener("loadeddata", updateThumbnail);
-		};
-	}	
+		// Set dimensions to match the video
+		newCanvas.width = this.video.clientWidth;
+		newCanvas.height = this.video.clientHeight;
+	  
+		// Draw the sprite portion
+		ctx.clearRect(0, 0, newCanvas.width, newCanvas.height);
+		ctx.drawImage(
+		  spriteImg,
+		  cue.x, cue.y, cue.w, cue.h,
+		  0, 0, newCanvas.width, newCanvas.height
+		);
+	  
+		// Append new canvas for fade-in
+		this.wrapper.appendChild(newCanvas);
+		// (i.e., keep at most 2 in the DOM at once)
+		while (this.wrapper.childElementCount > 2) {
+		  this.wrapper.removeChild(this.wrapper.firstElementChild);
+		}
+
+	  }	  
   
 	/**
 	 * Asynchronously loads and parses a VTT file.
 	 *
 	 * @param {string} url - URL of the VTT file.
 	 */
-
 	async _loadVtt(url) {
-		try {
+	  try {
 		const res = await fetch(url);
 		if (!res.ok) {
-			throw new Error(`HTTP error! status: ${res.status}`);
+		  throw new Error(`HTTP error! status: ${res.status}`);
 		}
 		const text = await res.text();
 		this._vttCues = this._parseVtt(text, url);
-		} catch (err) {
+	  } catch (err) {
 		console.error("Failed to load VTT file:", err);
-		}
+	  }
 	}
   
 	/**
-	 * Parses a WEBVTT file.
-	 * Expected cue format (example):
-	 *
-	 * WEBVTT
-	 *
-	 * 1
-	 * 00:00:00.000 --> 00:00:01.000
-	 * _0.jpg#xywh=0,0,300,168
+	 * Parses a WEBVTT file to extract sprite-cue data.
 	 *
 	 * Returns an array of cues: { start, end, src, x, y, w, h }
-	 *
-	 * @param {string} vttText - The content of the VTT file.
-	 * @returns {Array} Parsed cues.
 	 */
 	_parseVtt(vttText, vttUrl) {
-		const vttBasePath = vttUrl.substring(0, vttUrl.lastIndexOf("/"));
-		const cues = vttText.split("\n").reduce((acc, line, index, arr) => {
-		  line = line.trim();
-		  if (index === 0 && line.toUpperCase().startsWith("WEBVTT")) return acc;
-		  if (line.includes("-->")) {
-			const [startStr, endStr] = line.split("-->").map((s) => s.trim());
-			const start = this._parseTime(startStr);
-			const end = this._parseTime(endStr);
-			const spriteLine = arr[index + 1]?.trim();
-			if (spriteLine) {
-			  const [srcPart, xywhPart] = spriteLine.split("#");
-			  let x = 0, y = 0, w = 0, h = 0;
-			  if (xywhPart && xywhPart.startsWith("xywh=")) {
-				[x, y, w, h] = xywhPart.replace("xywh=", "").split(",").map((n) => parseInt(n, 10));
-			  }
-			  const src = srcPart.includes("/") ? srcPart : `${vttBasePath}/${srcPart}`;
-			  acc.push({ start, end, src, x, y, w, h });
+	  const vttBasePath = vttUrl.substring(0, vttUrl.lastIndexOf("/"));
+	  return vttText.split("\n").reduce((acc, line, index, arr) => {
+		line = line.trim();
+		if (index === 0 && line.toUpperCase().startsWith("WEBVTT")) return acc;
+		if (line.includes("-->")) {
+		  const [startStr, endStr] = line.split("-->").map((s) => s.trim());
+		  const start = this._parseTime(startStr);
+		  const end = this._parseTime(endStr);
+		  const spriteLine = arr[index + 1]?.trim();
+		  if (spriteLine) {
+			const [srcPart, xywhPart] = spriteLine.split("#");
+			let x = 0,
+			  y = 0,
+			  w = 0,
+			  h = 0;
+			if (xywhPart && xywhPart.startsWith("xywh=")) {
+			  [x, y, w, h] = xywhPart
+				.replace("xywh=", "")
+				.split(",")
+				.map((n) => parseInt(n, 10));
 			}
+			const src = srcPart.includes("/")
+			  ? srcPart
+			  : `${vttBasePath}/${srcPart}`;
+			acc.push({ start, end, src, x, y, w, h });
 		  }
-		  return acc;
-		}, []);
-		return cues;
+		}
+		return acc;
+	  }, []);
 	}
   
 	/**
 	 * Converts a time string "HH:MM:SS.mmm" into seconds.
-	 *
-	 * @param {string} timeStr - The time string.
-	 * @returns {number} Time in seconds.
 	 */
 	_parseTime(timeStr) {
 	  const parts = timeStr.split(":");
